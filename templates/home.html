@@ -1,0 +1,196 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Upload and Resize</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}"> <!-- linking css for flask -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="shortcut icon" href="static/favicon/favicon.ico" type="image/x-icon">
+</head>
+
+<body class="bg-gray-900 text-white">
+    <nav class="bg-slate-800 text-white p-3 text-xl flex justify-around">
+        <a href="{{ url_for('index') }}"><img src="static/favicon/android-chrome-512x512.png" alt="logo" class="w-8 h-8 rounded-full"></a>
+        <ul class="flex [&>li]:mr-14">
+            <li><a href="{{ url_for('index') }}" class="hover:text-red-600 text-blue-400">Resize image</a></li>
+            <li><a href="{{ url_for('compresspage') }}" class="hover:text-red-600">Compress image</a></li>
+        </ul>
+    </nav>
+    <!-- <h1 class="text-4xl capitalize text-center font-bold mb-12">Resize Image </h1> -->
+
+    <div class="mx-auto w-10/12 flex h-[80vh] bg-gray-800 mt-10">
+
+        <div class="w-3/5 border-r-2 border-black p-8 ">
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="text" value="True" hidden name="resize">
+
+                <div class="flex space-x-4">
+                    <div class="w-10/12 mx-auto  flex flex-col border-dotted border-2 rounded-lg" id="dropArea">
+                        <div class="">
+                            <img id="imagePreview" src="" alt="Image Preview" class="my-4 hidden ">
+                        </div>
+                        <div id="isHidden">
+                            <p class="text-center">
+                                <i class="fa mt-16" style="font-size: 100px;">&#xf0ee;</i>
+                            </p>
+                            
+                            <p class="text-2xl text-center font-semibold capitalize mb-2">Drag & Drop to Upload File</p>
+                            <p class="text-lg font-semibold text-center">OR</p>
+                        </div>
+                        <div class="mx-auto mt-4 mb-4">
+                            <input type="file" id="imageUpload" name="photo" accept="image/png, image/jpeg" hidden>
+                            <label for="imageUpload"
+                                class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 border border-blue-700 rounded cursor-pointer inline-block">
+                                Browse file
+                            </label>
+                        </div>
+                        
+                    </div>
+
+                    <div
+                        class="text-black [&>input]:border [&>input]:p-1 [&>input]:mb-2 [&>label]:capitalize [&>input]:border-black flex flex-col mx-auto  ">
+                        <label for="width" class="text-white">width (in Pixels):</label>
+                        <input type="number" name="width" id="width" required>
+                        <label for="height" class="text-white"> height (in Pixels): </label>
+                        <input type="number" name="height" id="height" required>
+                        <p id="error" class="text-red-500"></p>
+                    </div>
+                </div>
+                <br>
+                <div class="mx-auto w-4/12 ">
+                    <button type="submit"
+                        class=" bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 border border-blue-700 rounded">Upload
+                        and Resize</button>
+                </div>
+            </form>
+        </div>
+
+        <div>
+            <p class="text-2xl font-semibold capitalize p-8">output:</p>
+            <div id="result"></div>
+        </div>
+    </div>
+
+    <div class="absolute bottom-4 left-4 ">
+        <p class="text-center  text-red-600">Note: Images support are .png, .jpg, .jpeg.</p>
+    </div>
+
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+            var formData = new FormData(this);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(
+                    data => {
+                        console.log(data);
+                        if (data.error) {
+                            document.querySelector('#error').innerText = data.error
+                            return false
+                        }
+                        let imageElement = document.createElement("img");
+                        let downloadlink = document.createElement("a");
+
+                        downloadlink.innerText = 'Download Image';
+                        downloadlink.classList.add('bg-gray-300', 'hover:bg-gray-400', 'text-gray-800', 'font-bold', 'py-2',
+                            'px-4', 'rounded', 'inline-flex', 'items-center', 'ml-2');
+
+                        downloadlink.value = data.filename
+
+                        imageElement.classList.add('pl-2');
+                        imagePath = data.image_url.replace(/\\/g, '/');  // Replace backslashes with forward slashes
+
+                        // Set the source of the image element
+                        downloadlink.href = imagePath;
+                        downloadlink.download = imagePath;
+                        imageElement.src = imagePath;
+
+                        // Append elements to the result div
+                        document.getElementById('result').appendChild(imageElement);
+                        document.getElementById('result').appendChild(downloadlink);
+                    })
+                .catch(error => console.error('Error:', error));
+        });
+
+        document.getElementById("imageUpload").onchange = function (event) {
+            previewImage(event);
+        };
+
+        function previewImage(event) {
+            var reader = new FileReader();
+            reader.onload = function () {
+                var output = document.getElementById('imagePreview');
+                var isHidden = document.getElementById('isHidden');
+
+                output.src = reader.result;
+                isHidden.classList.add('hidden')
+                output.classList.remove('hidden')
+            }
+            reader.readAsDataURL(event.target.files[0]);
+        }
+
+        // Function to handle file selection
+        function handleFileSelect(event) {
+            event.stopPropagation();
+            event.preventDefault();
+
+            var files = event.dataTransfer.files; // FileList object.
+
+            // Process each file selected
+            for (var i = 0, file; file = files[i]; i++) {
+                // Only process image files.
+                if (!file.type.match('image.*')) {
+                    continue;
+                }
+
+                var reader = new FileReader();
+
+                reader.onload = (function (theFile) {
+                    return function (e) {
+                        // Render thumbnail.
+                        var preview = document.getElementById('imagePreview');
+                        preview.src = e.target.result;
+                        preview.classList.remove('hidden');
+                    };
+                })(file);
+
+                // Read in the image file as a data URL.
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Setup drag and drop listeners
+        var dropArea = document.getElementById('dropArea');
+
+        dropArea.addEventListener('dragenter', function (event) {
+            event.preventDefault();
+            dropArea.classList.add('border-blue-500');
+        });
+
+        dropArea.addEventListener('dragover', function (event) {
+            event.preventDefault();
+            dropArea.classList.add('border-blue-500');
+        });
+
+        dropArea.addEventListener('dragleave', function (event) {
+            event.preventDefault();
+            dropArea.classList.remove('border-blue-500');
+        });
+
+        dropArea.addEventListener('drop', function (event) {
+            event.preventDefault();
+            dropArea.classList.remove('border-blue-500');
+            handleFileSelect(event);
+        });
+    </script>
+</body>
+
+</html>
